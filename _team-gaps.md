@@ -63,6 +63,66 @@ These are the four gaps surfaced when the team was first built. Maintainer can d
 
 ---
 
+## Discovered by tools/validate.sh on 2026-05-03
+
+### Gap G-005 — missing-skill-set-architecture
+**Severity:** moderate
+**Evidence:** `team/roles/architect.md` previously listed `architecture/system-design`, `architecture/data-modeling`, `architecture/tech-stack-selection`, `meta/repomix-ingest` in default-skills; none have `SKILL.md` files. Removed from frontmatter; documented as aspirational.
+**Proposed fix:** Author 4 skills under `team/skills/architecture/` and `team/skills/meta/` covering system design, data modeling (ERD + indexing patterns), tech-stack-selection (decision matrix), and repomix-ingest (procedure for using `tools/ingest.sh`).
+**Status:** open
+**Logged by:** validate.sh
+**Logged date:** 2026-05-03
+
+### Gap G-006 — missing-skill-engineering-refactoring
+**Severity:** moderate
+**Evidence:** `team/roles/backend-engineer.md` referenced `engineering/refactoring`; no SKILL.md exists. Removed.
+**Proposed fix:** Author `team/skills/engineering/refactoring/SKILL.md` covering safe transformation patterns (extract, inline, split-merge) with tests-as-safety-net.
+**Status:** open
+**Logged by:** validate.sh
+**Logged date:** 2026-05-03
+
+### Gap G-007 — missing-skill-engineering-code-review-canonical
+**Severity:** trivial
+**Evidence:** Multiple roles (backend, frontend, mobile, security) referenced `engineering/code-review`; vendored set has `engineering/requesting-code-review` and `engineering/receiving-code-review` (separate). Roles updated to use both vendored versions or one as appropriate.
+**Proposed fix:** Either author a single `engineering/code-review/SKILL.md` that points to both, OR keep the split and add a meta skill `engineering/peer-review-loop` describing how requesting+receiving compose. Lean toward composing.
+**Status:** in-progress (worked around in role frontmatter; proper fix deferred)
+**Logged by:** validate.sh
+**Logged date:** 2026-05-03
+
+### Gap G-008 — missing-skill-set-design
+**Severity:** moderate
+**Evidence:** `team/roles/designer.md` and `team/roles/frontend-engineer.md` referenced `design/design-system` and `design/ux-flow`; neither has a SKILL.md.
+**Proposed fix:** Author 2 skills under `team/skills/design/`: `design-system` (tokens + components + rhythm) and `ux-flow` (every screen, every state, every transition).
+**Status:** open
+**Logged by:** validate.sh
+**Logged date:** 2026-05-03
+
+### Gap G-009 — missing-skill-set-product
+**Severity:** moderate
+**Evidence:** `team/roles/product-manager.md` referenced `product/user-story`, `product/roadmap`, `meta/handoff-protocol`; none have SKILL.md files.
+**Proposed fix:** Author 3 skills: `product/user-story` (decomposing PRDs into testable stories with acceptance criteria), `product/roadmap` (sequencing work), `meta/handoff-protocol` (the format for `workspace/<slug>/handoffs/*.md`).
+**Status:** open
+**Logged by:** validate.sh
+**Logged date:** 2026-05-03
+
+### Gap G-010 — missing-skill-set-qa
+**Severity:** moderate
+**Evidence:** `team/roles/qa-engineer.md` referenced `qa/test-strategy` and `qa/manual-test-plans`; neither has SKILL.md.
+**Proposed fix:** Author 2 skills: `qa/test-strategy` (unit/integration/E2E split per project) and `qa/manual-test-plans` (exploratory + scripted test plan structure).
+**Status:** open
+**Logged by:** validate.sh
+**Logged date:** 2026-05-03
+
+### Gap G-011 — missing-skill-set-docs
+**Severity:** moderate
+**Evidence:** `team/roles/technical-writer.md` referenced `docs/api-docs`, `docs/readme-writing`, `docs/changelog`, `docs/runbook`; ZERO of the 4 have SKILL.md files. Worst-impacted domain.
+**Proposed fix:** Author all 4 skills under `team/skills/docs/`. README and runbook are highest-leverage (they're produced for every project).
+**Status:** open
+**Logged by:** validate.sh
+**Logged date:** 2026-05-03
+
+---
+
 ## Future gaps go here
 
 Append below. Increment G-NNN globally.

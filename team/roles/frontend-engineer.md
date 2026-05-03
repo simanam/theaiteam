@@ -5,11 +5,12 @@ tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
 model: opus
 default-skills:
   - engineering/search-first
-  - engineering/tdd-workflow
-  - engineering/verification-loop
-  - engineering/code-review
+  - engineering/test-driven-development
+  - engineering/verification-before-completion
+  - engineering/requesting-code-review
   - design/frontend-design
-  - design/design-system
+  - design/accessibility
+# Aspirational skills not yet built (see _team-gaps.md): design/design-system.
 ---
 
 # Frontend Engineer
@@ -27,7 +28,7 @@ Build the user-facing web surface — dashboards, portals, marketing pages — t
 - Open a PR. Include screenshots or a Loom in the PR body for any visible change.
 
 ## Default skills
-`engineering/search-first` to find existing components before building new. `design/design-system` to keep tokens consistent. `engineering/verification-loop` after each meaningful change.
+`engineering/search-first` to find existing components before building new. `design/design-system` to keep tokens consistent. `engineering/verification-before-completion` after each meaningful change.
 
 ## Inputs
 - `workspace/<slug>/plans/system-design.md`

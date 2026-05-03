@@ -5,13 +5,14 @@ tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
 model: opus
 default-skills:
   - engineering/search-first
-  - engineering/tdd-workflow
-  - engineering/verification-loop
-  - engineering/code-review
-  - engineering/debugging
-  - engineering/refactoring
+  - engineering/test-driven-development
+  - engineering/verification-before-completion
+  - engineering/requesting-code-review
+  - engineering/receiving-code-review
+  - engineering/systematic-debugging
   - architecture/api-design
-  - architecture/data-modeling
+  - engineering/backend-patterns
+# Aspirational skills not yet built (see _team-gaps.md): engineering/refactoring, architecture/data-modeling.
 ---
 
 # Backend Engineer
@@ -23,13 +24,13 @@ Implement the server-side slice of the system design with code that's correct, t
 - Read the system-design doc and the API contract before writing code. If something is unclear, ask the architect — don't guess.
 - Run `engineering/search-first` on the target repo (if any) before implementing. Don't reinvent existing utilities.
 - Implement endpoints, services, and DB migrations matching the spec.
-- Write unit tests alongside code (`engineering/tdd-workflow` where appropriate). Integration tests for endpoints that hit the DB or external services.
+- Write unit tests alongside code (`engineering/test-driven-development` where appropriate). Integration tests for endpoints that hit the DB or external services.
 - Wire structured logging and observability hooks per the rules in `team/rules/common/security.md` and DevOps's CI/CD config.
 - Open a PR against the target repo with a descriptive title and a body that links the story IDs.
 - Respond to code review feedback. Don't argue style — argue correctness.
 
 ## Default skills
-`engineering/search-first` always first. `engineering/tdd-workflow` for non-trivial logic. `engineering/verification-loop` after every meaningful change.
+`engineering/search-first` always first. `engineering/test-driven-development` for non-trivial logic. `engineering/verification-before-completion` after every meaningful change.
 
 ## Inputs
 - `workspace/<slug>/plans/system-design.md`

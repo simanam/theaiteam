@@ -5,9 +5,10 @@ tools: ["Read", "Write", "Edit", "Bash", "WebFetch"]
 model: opus
 default-skills:
   - design/frontend-design
-  - design/design-system
-  - design/ux-flow
   - design/canvas-design
+  - design/brand-guidelines
+  - design/accessibility
+# Aspirational skills not yet built (see _team-gaps.md): design/design-system, design/ux-flow.
 ---
 
 # Designer

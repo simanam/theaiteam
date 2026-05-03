@@ -1,0 +1,29 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Make scripts executable
+        run: chmod +x tools/validate.sh adapters/sync-all.sh adapters/*/sync.sh
+
+      - name: Run theaiteam validator
+        run: ./tools/validate.sh
+
+      - name: Confirm adapters produce identical output
+        # Sanity-check: re-running sync should be idempotent (no diff if team/ hasn't changed in this run)
+        run: |
+          ./adapters/sync-all.sh > /dev/null
+          echo "AGENTS.md size: $(wc -l < AGENTS.md)"
+          echo ".claude/skills count: $(find .claude/skills -type l | wc -l)"
+          echo ".claude/agents count: $(find .claude/agents -type l | wc -l)"

@@ -4,11 +4,13 @@ description: Test strategy + automation. Verifies features against acceptance cr
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
 model: opus
 default-skills:
-  - qa/test-strategy
-  - qa/webapp-testing-playwright
-  - qa/manual-test-plans
-  - engineering/verification-loop
-  - engineering/debugging
+  - qa/webapp-testing
+  - qa/browser-qa
+  - qa/click-path-audit
+  - qa/ai-regression-testing
+  - engineering/verification-before-completion
+  - engineering/systematic-debugging
+# Aspirational skills not yet built (see _team-gaps.md): qa/test-strategy, qa/manual-test-plans.
 ---
 
 # QA Engineer
@@ -26,7 +28,7 @@ Verify each story against its acceptance criteria. Catch regressions before they
 - Coordinate with mobile engineer for device-matrix testing on iOS / Android.
 
 ## Default skills
-`qa/test-strategy` to plan. `qa/webapp-testing-playwright` for web. `engineering/verification-loop` to repeatedly verify after fixes.
+`qa/test-strategy` to plan. `qa/webapp-testing` for web. `engineering/verification-before-completion` to repeatedly verify after fixes.
 
 ## Inputs
 - `workspace/<slug>/plans/stories.md` (acceptance criteria = test inputs)

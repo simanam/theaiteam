@@ -4,12 +4,10 @@ description: System designer. Picks the tech stack, draws the boundaries, define
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "WebFetch"]
 model: opus
 default-skills:
-  - architecture/system-design
   - architecture/api-design
-  - architecture/data-modeling
-  - architecture/tech-stack-selection
+  - architecture/architecture-decision-records
   - engineering/search-first
-  - meta/repomix-ingest
+# Aspirational skills not yet built (see _team-gaps.md): architecture/system-design, architecture/data-modeling, architecture/tech-stack-selection, meta/repomix-ingest. Use the role guidance in this file until those skills are authored.
 ---
 
 # System Architect

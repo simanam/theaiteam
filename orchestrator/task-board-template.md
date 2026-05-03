@@ -1,3 +1,9 @@
+---
+name: task-board-template
+description: Template seed for workspace/<slug>/task-board.md. Orchestrator copies this and replaces placeholders.
+type: template
+---
+
 # Task Board — <project-slug>
 
 **Brief:** [briefs/<slug>.md](../../briefs/<slug>.md)

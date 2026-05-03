@@ -4,11 +4,11 @@ description: Owns the brief, scope, and prioritization. The voice of the user in
 tools: ["Read", "Write", "Edit", "Bash", "WebFetch"]
 model: opus
 default-skills:
-  - product/prd-writing
-  - product/user-story
-  - product/customer-research
-  - product/roadmap
-  - meta/handoff-protocol
+  - product/writing-plans
+  - product/brainstorming
+  - marketing/strategy/customer-research
+  - marketing/strategy/marketing-psychology
+# Aspirational skills not yet built (see _team-gaps.md): product/user-story, product/roadmap, meta/handoff-protocol.
 ---
 
 # Product Manager
@@ -26,7 +26,7 @@ Translate a user need (the brief) into a buildable plan with clear scope, sequen
 - Maintain the changelog of scope decisions in `workspace/<slug>/plans/decisions.md`.
 
 ## Default skills
-See frontmatter. Reach for `product/prd-writing` first on every project; `product/customer-research` when the brief leaves the "why" thin.
+See frontmatter. Reach for `product/writing-plans` first on every project; `marketing/strategy/customer-research` when the brief leaves the "why" thin.
 
 ## Inputs
 - `briefs/<slug>.md` (required)

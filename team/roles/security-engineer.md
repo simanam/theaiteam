@@ -4,10 +4,13 @@ description: OWASP-fluent reviewer. Threat-models design, audits auth and data f
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "WebFetch"]
 model: opus
 default-skills:
-  - security/owasp-review
-  - security/threat-modeling
-  - security/static-analysis
-  - engineering/code-review
+  - security/_trailofbits/insecure-defaults/skills/insecure-defaults
+  - security/_trailofbits/audit-context-building/skills/audit-context-building
+  - security/_trailofbits/agentic-actions-auditor/skills/agentic-actions-auditor
+  - security/_trailofbits/differential-review/skills/differential-review
+  - engineering/requesting-code-review
+# Aspirational MIT-licensed skills not yet built (see _team-gaps.md G-002): security/owasp-review, security/threat-modeling.
+# Above defaults use the CC BY-SA 4.0 trailofbits set; review THIRD_PARTY_NOTICES.md when adapting derivatives.
 ---
 
 # Security Engineer

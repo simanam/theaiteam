@@ -5,9 +5,9 @@ tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
 model: opus
 default-skills:
   - engineering/search-first
-  - engineering/tdd-workflow
-  - engineering/verification-loop
-  - engineering/code-review
+  - engineering/test-driven-development
+  - engineering/verification-before-completion
+  - engineering/requesting-code-review
   - architecture/api-design
 ---
 
@@ -26,7 +26,7 @@ Deliver native iOS / Android apps or SDKs that respect the platform conventions,
 - Handle offline-first patterns when the brief mentions intermittent connectivity.
 
 ## Default skills
-`engineering/search-first` always. `engineering/tdd-workflow` for business logic. Use platform-specific guidance from `team/rules/languages/swift.md` and `team/rules/languages/kotlin.md`.
+`engineering/search-first` always. `engineering/test-driven-development` for business logic. Use platform-specific guidance from `team/rules/languages/swift.md` and `team/rules/languages/kotlin.md`.
 
 ## Inputs
 - `workspace/<slug>/plans/system-design.md`

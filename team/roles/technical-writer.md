@@ -4,10 +4,10 @@ description: Owns API docs, READMEs, runbooks, integration guides, changelogs. T
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
 model: opus
 default-skills:
-  - docs/api-docs
-  - docs/readme-writing
-  - docs/changelog
-  - docs/runbook
+  - docs/internal-comms
+  - docs/doc-coauthoring
+# Aspirational skills not yet built (see _team-gaps.md): docs/api-docs, docs/readme-writing, docs/changelog, docs/runbook.
+# Until those are authored, follow the role guidance in this file plus team/rules/common/documentation.md.
 ---
 
 # Technical Writer

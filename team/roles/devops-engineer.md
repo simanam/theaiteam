@@ -4,11 +4,10 @@ description: CI/CD, infra, deploys, observability. Owns the path from "merged" t
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
 model: opus
 default-skills:
-  - devops/ci-cd-setup
-  - devops/deployment
-  - devops/observability
-  - devops/infra-as-code
-  - engineering/verification-loop
+  - engineering/verification-before-completion
+# All devops/* skills are gaps (G-001 in _team-gaps.md). Until authored, the role uses the
+# guidance in this file directly. Aspirational: devops/ci-cd-setup, devops/deployment,
+# devops/observability, devops/infra-as-code.
 ---
 
 # DevOps Engineer
