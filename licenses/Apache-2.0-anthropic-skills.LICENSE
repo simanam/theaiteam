@@ -1,0 +1,6 @@
+Many skills in the anthropics/skills repository are licensed Apache 2.0. The
+docx, pdf, pptx, and xlsx skill subfolders are explicitly source-available
+(NOT open source) per the upstream README. Those four are NOT vendored here.
+
+Standard Apache 2.0 license text:
+https://www.apache.org/licenses/LICENSE-2.0

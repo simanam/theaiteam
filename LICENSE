@@ -1,0 +1,44 @@
+MIT License
+
+Copyright (c) 2026 Aman Singh
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+# Vendored content — original licenses preserved
+
+This repository vendors content from five upstream projects. Each upstream's
+original license applies to its own content and is preserved at:
+
+  licenses/
+  ├── MIT-marketingskills.LICENSE          (Corey Haines, MIT)
+  ├── MIT-everything-claude-code.LICENSE   (Affaan Mustafa, MIT)
+  ├── MIT-superpowers.LICENSE              (Jesse Vincent, MIT)
+  ├── Apache-2.0-anthropic-skills.LICENSE  (Anthropic, Apache 2.0)
+  └── CC-BY-SA-4.0-trailofbits-skills.LICENSE (Trail of Bits, CC BY-SA 4.0)
+
+See THIRD_PARTY_NOTICES.md for the full attribution and which directories
+contain content from which upstream.
+
+The Trail of Bits content under team/skills/**/*_trailofbits/ retains its
+CC BY-SA 4.0 license. Derivative works of that content carry the share-alike
+obligation. The MIT license above applies to original theaiteam content
+(the orchestrator, role files, theaiteam-original skills, adapters, tools,
+documentation) and does NOT override upstream licenses.
