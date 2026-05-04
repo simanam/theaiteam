@@ -126,3 +126,98 @@ These are the four gaps surfaced when the team was first built. Maintainer can d
 ## Future gaps go here
 
 Append below. Increment G-NNN globally.
+
+---
+
+## Discovered during omnilink-sprint-01 backend impl
+
+### Gap G-012 — pre-existing-organization-test-failures-on-omnilink-develop
+**Severity:** trivial (project-specific, not theaiteam itself — kept here only because the noise risks masking real Sprint 1 regressions)
+**Evidence:** On the omnilink-backend repo's `develop` branch, six tests in `tests/unit/test_organization.py` (`TestOrganizationPlan::test_free_plan_value`, `test_pro_plan_value`, `test_enterprise_plan_value`, `test_all_plans_exist`, `TestOrganizationListResponse::test_includes_role`, `test_role_is_optional`) fail with `AttributeError: FREE` because the `OrganizationPlan` enum was renamed to the new tier set (CREATOR/FLEET/SCALE/AGENCY/ADMIN) without updating these tests.
+**Proposed fix:** Project-side, not theaiteam-side. Backend role on omnilink should rewrite those tests against the current enum values. Out of scope for Sprint 1 audit-fixes (no ticket touches this).
+**Status:** fixed-in-ebd2fc2 (omnilink-backend, on PR #2 / branch `chore/sprint-02-pre-cleanup`)
+**Logged by:** backend-engineer (during omnilink-sprint-01 S-003/S-004 verification)
+**Logged date:** 2026-05-04
+**Notes:** Confirmed pre-existing on `develop` (verified by stashing Sprint 1 work and re-running). Closed during Sprint 2 Stage 0 — rewrote the enum-value tests against the actual 7-tier set (HOBBY/CREATOR/FLEET/SCALE/AGENCY/PARTNER/ADMIN, not the 5-tier the gap text guessed at) and added STRIPE_PLANS / UNLIMITED_PLANS membership checks to catch future drift. CI `--ignore=tests/unit/test_organization.py` flag dropped in commit 21a2a89.
+
+### Gap G-013 — omnilink-integration-tests-broken-on-develop
+**Severity:** moderate (project-specific, but big enough to block CI gating until fixed)
+**Evidence:** On the omnilink-backend repo, `pytest tests/integration/` errors on every test with `sqlalchemy.exc.DBAPIError: invalid input value for enum gs1bulkjobstatus: "pending"` during the `Base.metadata.create_all()` schema bootstrap. The `gs1_bulk_jobs` CREATE TABLE references the enum's `'pending'` default value before PostgreSQL has committed the `CREATE TYPE gs1bulkjobstatus`. Confirmed pre-existing on `develop` branch (re-verified 2026-05-04).
+**Proposed fix:** Project-side. Bootstrap the test schema via `alembic upgrade head` instead of `Base.metadata.create_all()` in `tests/conftest.py`. This forces enum types to be CREATEd before any table that references them.
+**Status:** fixed-in-85a5869 (conftest bootstrap); required-gate promotion deferred behind G-019
+**Logged by:** backend-engineer (during omnilink-sprint-01 Stage 4 prep)
+**Logged date:** 2026-05-04
+**Notes:** Closed during Sprint 2 Stage 0. Conftest now overrides `DATABASE_URL` to `TEST_DATABASE_URL`, busts `get_settings.cache_clear()`, runs `alembic.command.upgrade(cfg, "head")` in a worker thread (env.py uses `asyncio.run` at module load and can't run inside pytest-asyncio's event loop), and tears down via `DROP SCHEMA public CASCADE; CREATE SCHEMA public`. Verified locally: 21 migrations apply cleanly, schema bootstrap is no longer a blocker. **However**, with the bootstrap fixed, the integration suite surfaced ~40 pre-existing failures that were hidden behind `continue-on-error: true` — those are split out as G-019 below. Integration job stays informational until G-019 is drained, then promote to required.
+
+### Gap G-015 — omnilink-asyncpg-cant-reach-neon-pooler-from-local-mac
+**Severity:** moderate (project-specific, blocks any local script that hits the live DB)
+**Evidence:** From two different Macs (mine and Aman's), `asyncpg.connect("postgresql://...@ep-misty-haze-a4n4v7t3-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require")` times out after 30s. Neon console shows compute as Active. `psql` from the same machine wasn't successfully tested due to a shell-quoting issue with the URL. Browser-based Neon SQL editor works (Aman uses it for snapshots). Suggests the pooler endpoint is unreachable from these IPs OR there's a TLS/auth handshake issue specific to asyncpg.
+**Proposed fix:** Project-side. Diagnose:
+1. Try the direct (non-pooler) endpoint — drop `-pooler` from the host. If that works, the issue is pgbouncer + asyncpg compat (fix: append `?prepared_statement_cache_size=0` to the URL).
+2. Check Neon IP allowlist (Settings → Network).
+3. Try `psql` with `PGPASSWORD=... psql -h ep-misty-haze-a4n4v7t3-pooler.us-east-1.aws.neon.tech -U neondb_owner -d neondb -c "SELECT 1"` to bisect asyncpg-vs-libpq.
+**Status:** open
+**Logged by:** backend-engineer (during omnilink-sprint-01 S-013 attempted execution)
+**Logged date:** 2026-05-04
+**Notes:** Sprint 1 S-013 data drop will run via Neon's web SQL editor as a workaround. Doesn't block the PR or the deploy.
+**Update 2026-05-04 (post-deploy):** Bisected further. `pg_dump` against the same URL fails with `invalid URI query parameter: "ssl"` — the `.env` `DATABASE_URL` uses asyncpg's `?ssl=require` syntax, which libpq doesn't accept (libpq wants `?sslmode=require`). Workaround for `pg_dump`: rewrite the param at command time. Project-side fix: standardize `.env` on `?sslmode=require` (asyncpg accepts both; libpq only accepts the latter). The asyncpg-can't-reach-pooler issue is separate and still open — even with correct asyncpg syntax, the connection times out.
+**Update 2026-05-04 (Sprint 2 Stage 0 verification):** `.env` is already standardized — both `DATABASE_URL` (line 37) and `PROD_DATABASE_URL` (line 38) use `?sslmode=require`. Stripe-related portion of this gap is effectively closed; no edit needed. The asyncpg-can't-reach-pooler-from-local-mac symptom (separate root cause: likely Neon network-restrictions or pgbouncer compat) is not blocking any current work — log a fresh gap if it recurs. Marking this as **partial-closed**: the documented sslmode fix is in place; the pooler-reachability piece never had a confirmed root cause.
+
+### Gap G-016 — omnilink-local-env-points-at-dev-neon-branch (BY DESIGN)
+**Severity:** trivial (clarified after logging — the divergence is intentional, not a bug)
+**Evidence:** `omnilink-backend/.env` `DATABASE_URL` points at the **development** Neon branch by design. Production (`api.omny.link` / `go.omny.link`) connects to the **main** Neon branch via the Railway prod env. Workflow: feature branches off `develop`, PRs merge to `develop` (Railway redeploys dev env), then fast-forward `main` → `develop` and push (Railway redeploys prod env). Each env has its own Neon branch.
+**Proposed fix:** None — this is the intended setup. Document for future sessions (saved to memory: `project_omnilink_environments.md`).
+**Status:** won't-fix (working as intended)
+**Logged by:** backend-engineer (during omnilink-sprint-01 S-013 attempt)
+**Logged date:** 2026-05-04
+**Notes:** Initially logged as a config error after seeing zero Truckers rows in local; Aman clarified the two-environment split. Saved environment topology to claude memory so future sessions don't trip on it. Real implication: prod-side ops (data drops, schema reviews) must use Neon's web SQL editor in the prod project, not local scripts.
+
+### Gap G-017 — script-uses-wrong-table-name-gs1_audit_logs
+**Severity:** trivial
+**Evidence:** `omnilink-backend/scripts/sprint01_test_data_drop.py` references `gs1_audit_logs` (plural) in DELETE statements; actual table per `app/models/gs1_audit_log.py::__tablename__` is `gs1_audit_log` (singular). The script would have errored on first non-empty run.
+**Proposed fix:** Project-side. Single-character edit in `scripts/sprint01_test_data_drop.py` (drop the trailing `s`).
+**Status:** fixed-in-a041f69 (script deleted entirely)
+**Logged by:** backend-engineer
+**Logged date:** 2026-05-04
+**Notes:** Caught while reviewing the SQL before running it via Neon web editor. The web-editor SQL in the runbook already uses the correct singular form. Closed during Sprint 2 Stage 0 by deleting the script — its purpose is served (Truckers data drop ran via Neon SQL editor) and keeping a dead script with two latent bugs around adds risk for zero benefit.
+
+### Gap G-018 — script-references-nonexistent-public-users-table
+**Severity:** trivial
+**Evidence:** `omnilink-backend/scripts/sprint01_test_data_drop.py` includes `DELETE FROM users WHERE id NOT IN (...)`. There is no `public.users` table in the app schema — user identity lives in Neon Auth (separate auth service the app integrates with via JWT), referenced only by UUID in `organization_members.user_id`. The DELETE would error.
+**Proposed fix:** Project-side. Remove the `users` step from the script. The Sprint 1 brief assumed a `users` table existed in app schema; it doesn't. App-side cleanup is just `organizations` + `organization_members` + cascaded children.
+**Status:** fixed-in-a041f69 (script deleted entirely; same commit as G-017)
+**Logged by:** backend-engineer
+**Logged date:** 2026-05-04
+**Notes:** When/if Neon Auth records need cleanup, that's a separate operation in the Neon Auth dashboard, not a SQL DELETE. Closed during Sprint 2 Stage 0 alongside G-017.
+
+### Gap G-014 — omnilink-baseline-ruff-noise
+**Severity:** trivial (project-specific)
+**Evidence:** ~688 ruff findings on the diff against `develop` (most pre-existing on `develop`); ~1259 across the whole repo. Top categories: UP045 (500) `Optional[X]` → `X | None`, UP017 (23) tz import, PLC0415 (21) deferred imports.
+**Proposed fix:** Project-side. Run `ruff check --fix --unsafe-fixes app tests` once, review the diff, commit. Then enable lint as a required CI gate.
+**Status:** open
+**Logged by:** backend-engineer
+**Logged date:** 2026-05-04
+**Notes:** Sprint 1's CI workflow runs lint as `continue-on-error: true` until this is cleaned up.
+
+---
+
+## Discovered during omnilink-sprint-02 Stage 0
+
+### Gap G-019 — omnilink-integration-suite-bit-rot-uncovered-by-G013-fix
+**Severity:** moderate (project-specific; blocks promoting integration to a required CI gate)
+**Evidence:** With G-013's conftest fix in place (commit 85a5869 — alembic upgrade head bootstrap), the integration suite RUNS for the first time in months. Local run with the same env CI uses (`postgres:16-alpine` at localhost, `redis:7-alpine`, dev env vars): **26 passed, 18 failed, 22 errored** in 35.21s. All failures pre-date Sprint 2 Stage 0; they were hidden behind `continue-on-error: true`. Two distinct categories:
+
+1. **~22 errors — fixture/model drift**: tests in `test_redirects.py`, `test_gs1.py`, `test_campaigns.py` create `Campaign` / `ShortLink` rows without `organization_id`, but migration `eca77b8c65d0` ("Make organization_id NOT NULL on campaigns and short_links", from EP-09 multi-tenancy work) added the constraint. Sample error: `null value in column "organization_id" of relation "campaigns" violates not-null constraint`. Every campaign-creating test fixture needs an org seeded first.
+2. **~18 failures — schema/payload + assertion drift**:
+   - `POST /campaigns` returns 422 for the legacy test payloads — Pydantic schema gained / changed required fields since the tests were written.
+   - `tests/integration/test_health.py::test_health_endpoint` asserts `{status, environment, debug}` in the response body, but the endpoint deliberately returns just `{"status": "healthy"}` (security-hardening: "no sensitive data exposed", per `app/main.py:178-182`).
+
+**Proposed fix:** Project-side. Standalone PR (do NOT bundle into Sprint 2 RBAC tickets). Estimated 6–12h:
+- Update integration test fixtures (`auth_client`, the per-test setup helpers in `test_campaigns.py` / `test_redirects.py` / `test_gs1.py`) to seed an `Organization` and `OrganizationMember` for the test user, then pass `organization_id` to every `Campaign` / `ShortLink` factory call.
+- Walk each failing assertion against the current schema/endpoint contract; either update the test or, where the test reflects a still-valid invariant the endpoint regressed on, fix the endpoint.
+- Once the suite is green, drop `continue-on-error: true` from `.github/workflows/ci.yml::integration-tests` and update the job name back to "Integration tests (required gate)".
+
+**Status:** open
+**Logged by:** backend-engineer (during Sprint 2 Stage 0, after G-013 conftest fix exposed the underlying suite state)
+**Logged date:** 2026-05-04
+**Notes:** Sprint 2's RBAC matrix tests (ticket 2.14) are NEW tests in `tests/integration/test_rbac_matrix.py` and won't be blocked by G-019 — they'll seed orgs + members per the current pattern from the start. Promoting integration to a required gate is what G-019 unlocks; the alembic-bootstrap piece (G-013 proper) is already done.
