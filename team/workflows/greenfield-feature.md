@@ -92,6 +92,6 @@ Both must sign off in the task-board before any PR merges to main.
 
 ## Customization
 
-- For pure-backend (no UI): drop frontend-engineer, designer, mobile-engineer
-- For pure-iOS (no web): drop frontend-engineer
+- For pure-backend (no UI): drop frontend-engineer, designer, mobile-engineer **only if** no existing consumer (dashboard, mobile, MCP, SDK, partner integration) calls the endpoints being changed. If any consumer is affected, keep `frontend-engineer` (or the relevant consumer-side role) in the mix and run a parallel consumer-migration PR. If you must drop them, the PRD owns a "Consumed endpoints + migration plan" section per [team/rules/common/git-workflow.md § Cross-repo response-shape changes](../rules/common/git-workflow.md#cross-repo-response-shape-changes), and DevOps closes the manual-smoke gate before ship.
+- For pure-iOS (no web): drop frontend-engineer (same consumer-migration check applies — if iOS calls any backend you're changing, the rule still fires).
 - For internal tooling (no marketing surface): drop marketing-strategist (still create internal launch doc)

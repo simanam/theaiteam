@@ -26,6 +26,7 @@
 - Commit subjects describe the change, not your effort. ("add rate limit", not "finally fixed the rate limit").
 - PR descriptions are written for the reviewer, not for yourself in 6 months.
 - Link to the brief, the story, and any prior art.
+- For PRs that touch endpoint contracts (response shape, status code, request schema, removed/renamed endpoints), include the **Cross-repo impact** checkbox per [git-workflow.md § Cross-repo response-shape changes](git-workflow.md#cross-repo-response-shape-changes). Default when in doubt: treat the change as consumed.
 
 ## On disagreement
 
