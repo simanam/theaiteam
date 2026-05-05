@@ -221,3 +221,54 @@ Append below. Increment G-NNN globally.
 **Logged by:** backend-engineer (during Sprint 2 Stage 0, after G-013 conftest fix exposed the underlying suite state)
 **Logged date:** 2026-05-04
 **Notes:** Sprint 2's RBAC matrix tests (ticket 2.14) are NEW tests in `tests/integration/test_rbac_matrix.py` and won't be blocked by G-019 — they'll seed orgs + members per the current pattern from the start. Promoting integration to a required gate is what G-019 unlocks; the alembic-bootstrap piece (G-013 proper) is already done.
+
+
+---
+
+## Discovered during omnilink-sprint-03 kickoff (P0 incident)
+
+### Gap G-020 — cross-repo-consumer-migration-rule-missing
+**Severity:** high (process gap — caused a real ~15.5h customer-facing outage on the dashboard)
+**Evidence:** `omnilink-backend` Sprint 2 (PR #3, merged 2026-05-05 02:04:46Z, commit `808ad69`) changed five paginated GET endpoints to `PaginatedResponse[T] = {items, total, next_cursor}`. The dashboard repo (`omnlink-frontend`) typed the responses as bare arrays. Sprint 2's PRD R2 named the consumer-migration risk but the team excluded `frontend-engineer` from the role mix and had no compensating gate. Backend shipped; dashboard broke in prod with `Uncaught TypeError: q.map is not a function` on every authenticated list view (campaigns, short links, organizations, team roster). Recovery: `omnlink-frontend` PR #1 (commit `c5c13b9`), Vercel prod deploy at 2026-05-05 17:31:33Z, ~15.5h impact window. Truckers Routine redirects unaffected.
+
+**Proposed fix:** Team-level. `team/rules/common/git-workflow.md` gets a new section `## Cross-repo response-shape changes` requiring: (a) PM identifies consumed endpoints in PRD; (b) if the sprint changes a response shape / status code / breaking schema on a consumed endpoint AND excludes frontend-engineer from the role mix, the PRD must specify the consumer migration plan; (c) DevOps gates ship on either a parallel consumer PR co-deployed OR a manual smoke against consumer prod build verifying the new shape works. Maintainer drafts; PM + DevOps review.
+
+**Status:** fixed-in-703c448
+**Logged by:** orchestrator (during omnilink-sprint-03 kickoff, after recovering from the regression)
+**Logged date:** 2026-05-05
+**Notes:** Brief at [`improvement-briefs/cross-repo-consumer-migration-rule.md`](improvement-briefs/cross-repo-consumer-migration-rule.md). Landed in commit 703c448 (2026-05-05) before Sprint 4 architect dispatch — added `## Cross-repo response-shape changes` section to `team/rules/common/git-workflow.md` naming trigger, gate, owners (PM at PRD-time / Architect at design-time / DevOps at ship-time), and two enforcement mechanisms (PR-description checkbox + sprint-level PRD section). Cross-linked from `team/rules/common/communication.md`. Updated `team/workflows/greenfield-feature.md` Customization to gate the "drop frontend-engineer" path on no-consumer-impact rather than offering a frictionless drop. Cross-checked against Sprint 4: rule catches 4.2 (`X-Workspace-ID` header semantic), 4.11 (per-role anonymized export shape), and any F-5 backend-only folding pattern.
+
+
+### Gap G-021 — subagent-bash-sandboxed-to-project-working-tree
+**Severity:** moderate (recurs on every cross-repo sprint; works around easily but adds friction)
+**Evidence:** Stage 3 backend dispatch on omnilink-sprint-03 hit a hard wall: spawned `backend-engineer` subagent reported `/Users/amansingh/Documents/marketing_projects/omnilink-backend` is outside its Bash sandbox. It could Read at known absolute paths but couldn't `ls`/`find` to discover structure, run `pytest`, run `alembic`, `git commit`, or `gh pr create`. The orchestrator (main Claude Code session) has no such restriction — already drove the omnlink-frontend hotfix end-to-end including push + PR creation. The asymmetry is structural to subagent isolation, not per-role-config.
+
+**Repro:** any Agent({...}) dispatch in this repo where the subagent needs to operate on a sibling project under `/Users/amansingh/Documents/marketing_projects/`. Sprint 3 was the first time we needed this; Sprint 4 (API keys + rate limit) and Sprint 16 (branded domains) will hit it again.
+
+**Proposed fix:** team-level. Three options for the maintainer to evaluate in a brief:
+1. **Document the pattern**: "Cross-repo implementation work runs as orchestrator-drives, not subagent-drives. Subagents are for design/review/planning artifacts inside theaiteam workspace; main session executes against sibling repos." Codify in `team/rules/common/team-improvement.md` or a new `team/rules/common/multi-repo-execution.md`.
+2. **Pre-stage the repo**: orchestrator copies/symlinks the target repo into `workspace/<slug>/staging/` before subagent dispatch so it's inside the sandbox. Adds ~30s setup; recovery is `rsync` back. Risk: working-tree drift.
+3. **Broaden subagent permissions** via Claude Code settings (if possible): `additional-bash-roots` style config. Investigate what's available; this would be the cleanest fix.
+
+**Status:** open
+**Logged by:** orchestrator (during omnilink-sprint-03 Stage 3 dispatch)
+**Logged date:** 2026-05-05
+**Notes:** Sprint 3 unblocked by orchestrator-drives-directly fallback (Aman approved 2026-05-05). The fallback works but burns the main session's context window on implementation work; a fresh subagent would have ~150K headroom while the orchestrator has whatever's left after PM + architect + security + frontend-hotfix orchestration. Not a Sprint 3 blocker, but the maintainer should pick option (1) or (3) before Sprint 4 to keep the workflow scalable.
+
+
+### Gap G-022 — ai-legal-doc-drafter-skill-or-agent
+**Severity:** moderate (recurring need; current workaround is "inline AI prompt during PM intake")
+**Evidence:** Sprint 4 (kickoff 2026-05-05) needs a DPA template drafted but Aman explicitly opted out of paying for outside legal counsel at this stage. Current workaround: PM drafts via inline AI during Stage 1 with disclaimers. Sprint 25 will need an SCC doc using the same `OrganizationLegalDoc` model. Sprint 16+ may need privacy policy / ToS updates per branded-domain rollout. Without a structured helper, every legal-doc need re-derives the prompt + disclaimer pattern from scratch and risks inconsistency.
+
+**Proposed fix:** team-level. Maintainer evaluates two shapes:
+
+1. **As a skill** at `team/skills/legal/legal-doc-drafter/` — invocable from any role (PM, marketing-strategist, security-engineer). Templates: DPA, privacy policy, ToS, SCC, GDPR-Article-30 record. Each template has structured input schema (data controller, sub-processors, retention period, lawful basis, etc.) and outputs markdown. Footer disclaimer baked in: "AI-drafted, not lawyer-reviewed; consult counsel before final use."
+
+2. **As an agent role** at `team/roles/legal-doc-drafter.md` — focused agent invoked when a sprint needs a legal artifact. Pros: separates legal context from PM's product context; cons: another role to maintain; legal docs are infrequent enough that a skill might suffice.
+
+Maintainer's call which shape. Skill is lighter; agent is more separation-of-concerns.
+
+**Status:** open
+**Logged by:** orchestrator (during omnilink-sprint-04 kickoff prep)
+**Logged date:** 2026-05-05
+**Notes:** Sprint 4 itself uses the inline-AI workaround; not blocked on this gap. The improvement brief should land before Sprint 25 (EU residency / SCC), which is the next sprint that needs another legal doc. If Aman engages outside legal counsel before then, this gap is partially obviated (counsel reviews, AI drafts) but the structured-input-schema value remains.
