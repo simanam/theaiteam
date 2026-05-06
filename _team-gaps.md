@@ -272,3 +272,20 @@ Maintainer's call which shape. Skill is lighter; agent is more separation-of-con
 **Logged by:** orchestrator (during omnilink-sprint-04 kickoff prep)
 **Logged date:** 2026-05-05
 **Notes:** Sprint 4 itself uses the inline-AI workaround; not blocked on this gap. The improvement brief should land before Sprint 25 (EU residency / SCC), which is the next sprint that needs another legal doc. If Aman engages outside legal counsel before then, this gap is partially obviated (counsel reviews, AI drafts) but the structured-input-schema value remains.
+
+
+### Gap G-023 — railway-cloudflare-only-ingress-not-enforced
+**Severity:** moderate (project-specific; security hardening, not a current incident)
+**Evidence:** OmniLink prod traffic goes Cloudflare → Railway → FastAPI. Railway sets `CF-Connecting-IP` correctly when traffic comes through Cloudflare, and Sprint 4's IP-helper rewrite (P1-H-01 fix) prefers that header. **However**, Railway also exposes auto-generated subdomains (`web-production-XXXXX.up.railway.app` for prod; `web-production-53a8c.up.railway.app` for dev) that bypass Cloudflare entirely. A request hitting the Railway-direct domain has no `CF-Connecting-IP` (Cloudflare didn't set it), so the helper falls back to XFF — which an attacker can spoof since Railway's proxy on its own doesn't strip client-supplied XFF. Net effect: Sprint 4's spoofing fix is end-to-end secure ONLY when traffic actually goes through Cloudflare; the Railway-direct path remains a one-header-spoof bypass.
+
+**Proposed fix:** Project-side, separate sprint. Three options:
+1. **Railway IP allowlist** — restrict Railway ingress to Cloudflare's published IP ranges (~17 CIDRs). Cloudflare publishes the list at https://www.cloudflare.com/ips/ . Add at Railway's network/firewall settings if Railway supports IP allowlist (verify capability). Refresh allowlist quarterly via a small cron / GitHub Action.
+2. **Cloudflare Authenticated Origin Pulls (mTLS)** — Cloudflare presents a client cert when calling origin; Railway/FastAPI rejects requests without it. Most robust but heavier setup; needs Cloudflare's free origin cert + nginx/reverse-proxy on Railway side.
+3. **Application-layer header check** — in FastAPI middleware, reject requests where `CF-Connecting-IP` is missing AND the request appears to be from outside the Railway-internal proxy. Cheapest but adds app-layer auth; only catches HTTP-level bypasses, not TCP-level scans.
+
+Recommend option 1 (Railway IP allowlist) for minimum operational complexity. Pair with a Sprint-4 mitigation: Sprint 4's helper logs a `WARNING` when `CF-Connecting-IP` is missing on a request, so we'll see if anyone is actually hitting the Railway-direct domain in practice before committing to the lockdown work.
+
+**Status:** open
+**Logged by:** orchestrator (during omnilink-sprint-04 Phase 1 sign-off)
+**Logged date:** 2026-05-05
+**Notes:** Not blocking Sprint 4 ship. Sprint 4's defensive coding (CF-Connecting-IP preference + XFF-depth fallback + missing-CF-header warning log) is sufficient for the customer-facing path. G-023 is the long-term hardening that closes the bypass entirely. Schedule for a post-Sprint-6 DevOps hardening sprint or fold into Sprint 16 (branded domains) since that sprint touches custom-domain ingress configuration. Truckers Routine traffic is already correctly Cloudflare-fronted so this gap doesn't affect them today.
