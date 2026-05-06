@@ -289,3 +289,53 @@ Recommend option 1 (Railway IP allowlist) for minimum operational complexity. Pa
 **Logged by:** orchestrator (during omnilink-sprint-04 Phase 1 sign-off)
 **Logged date:** 2026-05-05
 **Notes:** Not blocking Sprint 4 ship. Sprint 4's defensive coding (CF-Connecting-IP preference + XFF-depth fallback + missing-CF-header warning log) is sufficient for the customer-facing path. G-023 is the long-term hardening that closes the bypass entirely. Schedule for a post-Sprint-6 DevOps hardening sprint or fold into Sprint 16 (branded domains) since that sprint touches custom-domain ingress configuration. Truckers Routine traffic is already correctly Cloudflare-fronted so this gap doesn't affect them today.
+
+
+### Gap G-024 — api-keys-shipped-but-unreachable-on-most-endpoints
+**Severity:** high (foundational for AI-native + MCP positioning; shipped feature is half-functional in prod)
+**Evidence:** Sprint 4 shipped long-lived scoped API keys (HMAC-SHA256+pepper, unified-auth dispatcher, `require_scope()` factory, per-key rate limit override). Stage 2 architect on omnilink-sprint-04.1 (2026-05-06) found that `get_organization_context` (`omnilink-backend/app/core/dependencies.py:106`) requires `current_user: CurrentUser`, which is populated only from JWT via `verify_jwt` (`app/core/security.py:217-272`). API-key bearer tokens authenticate at the dispatcher layer but 401 at `OrgContext` BEFORE any endpoint logic (or `require_scope`) runs. **Net effect:** API keys work for authentication but are unusable on every endpoint that depends on `OrgContext` — which is most of the product surface. Two security-review phases (Phase 1 + Phase 2 with re-review) on Sprint 4 missed this; the gap surfaced only when Sprint 4.1 tried to wire the first end-to-end smoke test of the dispatcher in prod code. The Sprint 4 P2-L-03 deferral ("wire `require_scope` on at least one endpoint") was a conceptual integration smoke, not an end-to-end one — the deferred test would have flushed this out had it been written before Sprint 4 merge.
+
+**Repro:** any HTTP request with `Authorization: Bearer ok_…` (API key prefix) to any endpoint behind `Depends(get_organization_context)` returns 401 from `OrgContext`, not 200/403/whatever the endpoint would normally return. Verifiable via curl against `/api/v1/campaigns` with a valid API key.
+
+**Why it matters for product positioning:** OmniLink is being built as an AI-native + MCP-ready link/tracking platform. AI agents and MCP servers authenticate via API keys (or OAuth — see G-025), not JWT cookies. Until this is fixed, the API-key feature is a marketing surface ("we support long-lived API keys") that doesn't deliver on most endpoints.
+
+**Proposed fix:** Project-side, dedicated **Sprint 4.2** (planned at Sprint 4.1 D-505). Scope:
+1. Migrate `get_organization_context` to accept `auth: CurrentAuth` instead of `current_user: CurrentUser`.
+2. Derive org-membership from `auth.user_id` regardless of whether `auth` came from JWT or API key.
+3. Survey + migrate sibling dependency factories with the same pattern (`get_workspace_context`, etc.).
+4. Wire the deferred `require_scope("read:campaigns")` smoke on `GET /campaigns` (Sprint 4.1 S-402 carry).
+5. Integration tests covering JWT path AND API-key path on the same endpoint.
+6. Full Phase 1 + Phase 2 security review (touches the auth boundary).
+
+Estimated 4-6h impl + 1-2h tests. Schedule: immediately after Sprint 4.1 ships.
+
+**Status:** open (planned for Sprint 4.2 per D-505)
+**Logged by:** orchestrator (during omnilink-sprint-04.1 Stage 2 architect adjudication)
+**Logged date:** 2026-05-06
+**Notes:** Sprint 4.1 dropped S-402 (D-505) rather than ship a JWT-only "half-smoke" that would obscure this gap. Sprint 4.2 closes G-024 + S-402 together. Same-shape gap likely exists for `get_workspace_context` and any other `CurrentUser`-typed dependency — Sprint 4.2 architect surveys before scoping. Two Sprint 4 security-review passes missing this is a process signal: integration smoke for new auth surfaces must run BEFORE merge, not as a deferred carry-over. Worth an after-action item for Sprint-4 retrospective.
+
+
+### Gap G-025 — pre-existing test failures on omnilink-backend develop tip
+**Severity:** moderate (blocks the Sprint 4.1 impl plan's "pytest -x must stay green per commit" gate; not a regression from any Sprint 4.1 change)
+**Evidence:** Running `pytest -x -q` on omnilink-backend at `develop` (= `c188388`, the Sprint 4 ship tip) produces baseline failures BEFORE any Sprint 4.1 code lands:
+- 727 passed (full suite)
+- **3 failed:**
+  - `tests/integration/test_campaigns.py::TestCampaignCRUD::test_create_campaign_success` — POST /campaigns returns 422 instead of 201 (Pydantic validation rejecting `sample_campaign_data` fixture).
+  - `tests/integration/test_gs1.py::TestGS1ProductCreate::test_create_product_success`.
+  - `tests/integration/test_health.py::TestHealthEndpoints::test_health_endpoint`.
+  - `tests/integration/test_redirects.py::TestRedirectEndpoint::test_redirect_inactive_campaign`.
+- **21 errors:** all in `test_gs1.py` and `test_redirects.py` — appears to be a fixture/setup issue (errors come during test setup, before any assert runs). Likely a shared fixture broken by a model/schema migration that landed in Sprint 4 (`d73d63e..c188388`).
+
+The Sprint 4 ship was completed on 2026-05-06 with these test failures present. Sprint 4 Phase 2 sign-off claimed "all tests passing" but the integration tests above were not actually running clean. This was missed at QA.
+
+**Why it matters for Sprint 4.1:** the impl plan ([workspace/omnilink-sprint-04.1/plans/impl-plan.md](workspace/omnilink-sprint-04.1/plans/impl-plan.md)) committed to "pytest -x -q must stay green per commit." That gate is unsatisfiable with the current baseline — every Sprint 4.1 commit will trip on a pre-existing failure unrelated to the diff. The orchestrator is working around this by running focused unit + filtered integration suites per commit (see commit-1 verification: 635 unit tests pass + 97 integration tests pass excluding the four broken files), then doing a baseline-comparison full-suite run pre-handoff.
+
+**Proposed fix:**
+- **Short-term (Sprint 4.1 handoff):** orchestrator documents the baseline in the backend handoff packet; QA agent at Stage 4a inherits the baseline and asserts no NEW failures from the Sprint 4.1 diff (not zero failures absolute).
+- **Medium-term (Sprint 4.2 or dedicated):** pin the fixture/schema break that produced the test_gs1 and test_redirects setup errors; fix the 3-4 actual failures. Likely 1-2h to bisect from `d73d63e..c188388`. Most economical: file an improvement brief at `improvement-briefs/omnilink-test-suite-baseline-fix.md` and let DevOps + a backend role pair on it before Sprint 4.2 starts.
+- **Process:** add a CI check on omnilink-backend `develop` that fails when the test suite has any RED (not just count regressions). Sprint 4 shipped without this check, and the integration failures slipped through.
+
+**Status:** open
+**Logged by:** orchestrator (during omnilink-sprint-04.1 Stage 3 commit-1 baseline verification)
+**Logged date:** 2026-05-06
+**Notes:** Pre-existing — NOT caused by Sprint 4.1 code. Sprint 4.1 handoff to QA + Phase 2 must call this out so reviewers don't blame the Sprint 4.1 diff. Worth a Sprint 4 retrospective item too: process gap that allowed integration-test red on the ship branch.
