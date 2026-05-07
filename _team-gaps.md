@@ -217,10 +217,18 @@ Append below. Increment G-NNN globally.
 - Walk each failing assertion against the current schema/endpoint contract; either update the test or, where the test reflects a still-valid invariant the endpoint regressed on, fix the endpoint.
 - Once the suite is green, drop `continue-on-error: true` from `.github/workflows/ci.yml::integration-tests` and update the job name back to "Integration tests (required gate)".
 
-**Status:** open
+**Status:** fixed-in-2c10376 (Sprint 4.2.1, PR #9)
 **Logged by:** backend-engineer (during Sprint 2 Stage 0, after G-013 conftest fix exposed the underlying suite state)
 **Logged date:** 2026-05-04
 **Notes:** Sprint 2's RBAC matrix tests (ticket 2.14) are NEW tests in `tests/integration/test_rbac_matrix.py` and won't be blocked by G-019 — they'll seed orgs + members per the current pattern from the start. Promoting integration to a required gate is what G-019 unlocks; the alembic-bootstrap piece (G-013 proper) is already done.
+
+**Closed 2026-05-07 by Sprint 4.2.1** (`omnilink-sprint-04.2.1-test-baseline-fix`, shipped at `2c10376` via PR [#9](https://github.com/simanam/OmniLink/pull/9)). Both clusters originally documented are now zero across `tests/integration/`:
+- **Cluster 1 (22 fixture/model drift errors)** — closed by RC1 (`cfd2231`: drop native_enum from gs1_products.status), RC4 (`0a249ec`: backfill organization_id+workspace_id in test_redirects fixtures), RC5 (`d3b076c`: same enum drift on gs1_audit_log + gs1_bulk_job models), and RC3 (`cbf4dc4`: auth_client rebuild seeds real Org+Member+Workspace, backfills all inline Campaign creates in test_campaigns).
+- **Cluster 2 (~18 schema/payload + assertion drift failures)** — closed by RC2 (`8495950`: align test_health with security-hardened `/health` minimal response, see commit c30c699), RC5 (test_organization plan FLEET to enable gs1_enabled, plus session-expiry capture-before-await pattern in 3 redirect tests), and RC3 (cross-org isolation semantics for forbidden tests + PaginatedResponse shape assertions matching Sprint 2's contract change that triggered G-020).
+
+**CI gate flipped:** integration-tests job in `.github/workflows/ci.yml` is no longer `continue-on-error: true`. Renamed from "informational — pre-existing bit-rot, see gap G-019" to "required gate" (commit `976b13b`).
+
+**Branch protection deferred:** S-4.2.1-7 (durable enforcement via GitHub branch protection rule) was skipped — requires GitHub Pro for private repos. CI flip alone gives the visual block; admin override is preserved by design for solo-dev. See [Sprint 4.2.1 decisions.md D-014](../theaiteam/workspace/omnilink-sprint-04.2.1-test-baseline-fix/plans/decisions.md). Revisit when repo upgrades.
 
 
 ---
@@ -337,10 +345,12 @@ The Sprint 4 ship was completed on 2026-05-06 with these test failures present. 
 - **Medium-term (Sprint 4.2 or dedicated):** pin the fixture/schema break that produced the test_gs1 and test_redirects setup errors; fix the 3-4 actual failures. Likely 1-2h to bisect from `d73d63e..c188388`. Most economical: file an improvement brief at `improvement-briefs/omnilink-test-suite-baseline-fix.md` and let DevOps + a backend role pair on it before Sprint 4.2 starts.
 - **Process:** add a CI check on omnilink-backend `develop` that fails when the test suite has any RED (not just count regressions). Sprint 4 shipped without this check, and the integration failures slipped through.
 
-**Status:** open
+**Status:** fixed-in-2c10376 (Sprint 4.2.1, PR #9)
 **Logged by:** orchestrator (during omnilink-sprint-04.1 Stage 3 commit-1 baseline verification)
 **Logged date:** 2026-05-06
 **Notes:** Pre-existing — NOT caused by Sprint 4.1 code. Sprint 4.1 handoff to QA + Phase 2 must call this out so reviewers don't blame the Sprint 4.1 diff. Worth a Sprint 4 retrospective item too: process gap that allowed integration-test red on the ship branch.
+
+**Closed 2026-05-07 by Sprint 4.2.1** (`omnilink-sprint-04.2.1-test-baseline-fix`, shipped at `2c10376` via PR [#9](https://github.com/simanam/OmniLink/pull/9)). Five RC commits closed all 40 baseline issues across the four named files (`test_campaigns.py`, `test_gs1.py`, `test_redirects.py`, `test_health.py`). Three actual root causes (gs1productstatus enum drift, /health post-hardening test alignment, campaign POST 422 from auth_client G-019 territory) had two more layered RCs underneath (gs1_audit_log + gs1_bulk_job enum drifts; sql session expiry on async client). The auth_client rebuild (RC3 commit `cbf4dc4`) is the actual G-025 + G-019 closer — it migrated the legacy fixture to seed real Org+Member+Workspace and added the X-Org-ID header, which was what the original G-025 entry's "fix the 3-4 actual failures" referred to. Final integration suite: 172 passed, 0 failed, 0 errors. Full suite (incl. 666 unit): 838 passed.
 
 
 ### Gap G-026 — analytics-endpoint-could-migrate-to-api-key-auth-but-deferred
