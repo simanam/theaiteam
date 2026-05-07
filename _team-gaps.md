@@ -339,3 +339,24 @@ The Sprint 4 ship was completed on 2026-05-06 with these test failures present. 
 **Logged by:** orchestrator (during omnilink-sprint-04.1 Stage 3 commit-1 baseline verification)
 **Logged date:** 2026-05-06
 **Notes:** Pre-existing — NOT caused by Sprint 4.1 code. Sprint 4.1 handoff to QA + Phase 2 must call this out so reviewers don't blame the Sprint 4.1 diff. Worth a Sprint 4 retrospective item too: process gap that allowed integration-test red on the ship branch.
+
+
+### Gap G-026 — analytics-endpoint-could-migrate-to-api-key-auth-but-deferred
+**Severity:** low (deferral, not a defect; closes a Sprint 4.2 ADR follow-up)
+**Evidence:** Sprint 4.2 ADR-0001 (`workspace/omnilink-sprint-04.2/plans/adr/0001-current-user-stays-jwt-only.md`) classified every `current_user: CurrentUser` use site under `app/api/v1/endpoints/` for the OrgContext → CurrentAuth migration. All 23 sites stay JWT-only EXCEPT one DEFER candidate: `GET /organizations/{id}/analytics` at `omnilink-backend/app/api/v1/endpoints/organizations.py:707`. Programmatic analytics access is the canonical AI-native API-key use case (per OAuth + MCP roadmap). The `read:analytics` scope already exists in `app/core/security.py:SCOPES` (Sprint 4). Migration is a one-function change + tests, but defining ACs + tests + cross-repo gate analysis is its own scope.
+
+**Trigger:** when an MCP tool, partner integration, or AI agent needs programmatic access to org-level analytics — i.e., before any "AI-native analytics" marketing surface ships, OR when Sprint 4.3+ scope explicitly takes it on.
+
+**Proposed fix:** dedicated story (S-Sprint-4.3-X or Sprint 5 scope item):
+1. Migrate `get_organization_analytics_endpoint` (`organizations.py:707+`) to consume `auth: CurrentAuth` instead of `current_user: CurrentUser`.
+2. Add `dependencies=[Depends(require_scope("read:analytics"))]` on the route decorator.
+3. Integration tests covering JWT path + API-key path with `read:analytics` granted (200) + without (403).
+4. Re-validate that `auth.user_role_permissions` for multi-org JWT users is correct here (per Sprint 4.2 F-2 / F-3 in `workspace/omnilink-sprint-04.2/plans/system-design.md`).
+
+Estimated 2-3h impl + tests.
+
+**Status:** open (deferred per Sprint 4.2 ADR-0001)
+**Logged by:** architect (during omnilink-sprint-04.2 Stage 2 sibling-survey ADR)
+**Logged date:** 2026-05-06
+**Notes:** Not blocking. Sprint 4.2 ADR-0001 records the rationale; this gap is the actionable follow-up. Schedule alongside MCP tool wiring (which is the natural trigger) or fold into Sprint 5 enhanced-event work if the analytics endpoint is touched anyway.
+
