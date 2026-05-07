@@ -353,6 +353,54 @@ The Sprint 4 ship was completed on 2026-05-06 with these test failures present. 
 **Closed 2026-05-07 by Sprint 4.2.1** (`omnilink-sprint-04.2.1-test-baseline-fix`, shipped at `2c10376` via PR [#9](https://github.com/simanam/OmniLink/pull/9)). Five RC commits closed all 40 baseline issues across the four named files (`test_campaigns.py`, `test_gs1.py`, `test_redirects.py`, `test_health.py`). Three actual root causes (gs1productstatus enum drift, /health post-hardening test alignment, campaign POST 422 from auth_client G-019 territory) had two more layered RCs underneath (gs1_audit_log + gs1_bulk_job enum drifts; sql session expiry on async client). The auth_client rebuild (RC3 commit `cbf4dc4`) is the actual G-025 + G-019 closer — it migrated the legacy fixture to seed real Org+Member+Workspace and added the X-Org-ID header, which was what the original G-025 entry's "fix the 3-4 actual failures" referred to. Final integration suite: 172 passed, 0 failed, 0 errors. Full suite (incl. 666 unit): 838 passed.
 
 
+### Gap G-027 — rate_limit-middleware-_get_user-sub-dep-jwt-only (G-024-round-2)
+**Severity:** moderate (foundational for AI-native + MCP positioning; same shape as G-024 but in middleware, not OrgContext)
+**Evidence:** Sprint 4.3 Stage 3 surfaced this mid-impl while testing the architect's S-4.3-2 role-gated and S-4.3-4 saturation picks (`POST /api/v1/billing/portal`). API-key requests returned 401 "Could not validate credentials" — the `_GENERIC_401` from the dispatcher. Root cause:
+
+[`omnilink-backend/app/middleware/rate_limit.py:399-407`](../marketing_projects/omnilink-backend/app/middleware/rate_limit.py#L399):
+
+```python
+elif identifier_type == "user":
+    from app.core.security import get_current_user as _get_user
+
+    async def _check(
+        request: Request,
+        current_user: dict = _Depends(_get_user),  # ← JWT-only
+    ) -> None:
+        if not getattr(request.state, "user_id", None):
+            request.state.user_id = current_user["user_id"]
+        await _do_check(request)
+```
+
+`get_current_user` is JWT-only (per Sprint 4.2 ADR-0001 STAY-JWT-ONLY classification). Every endpoint with `dependencies=[Depends(rate_limit(category, identifier_type="user"))]` is currently UNREACHABLE via API-key auth — the rate_limit closure's `_get_user` sub-dep gates first with 401.
+
+**Affected endpoints (counted via `grep "rate_limit.*identifier_type=\"user\""`):**
+- `app/api/v1/endpoints/billing.py` — 7 routes (lines 231, 308, 360, 437, 830, 898, 1039) including `POST /billing/portal`, `POST /billing/checkout`, `POST /billing/cancel`, `POST /billing/upgrade`, etc.
+
+**NOT affected:** rate_limit with `identifier_type ∈ {ip, org, workspace}` — those use API-key-compatible sub-deps post-Sprint-4.2. Verified: `analytics_export` (org), `attribution_match` (ip), `campaign_create` (workspace) all reachable via API-key.
+
+**Sprint 4.2 ADR-0001 audit miss:** the audit scanned `current_user: CurrentUser` use sites under `app/api/v1/endpoints/` only. It did not audit middleware closures that declare `_Depends(_get_user)` internally. The `rate_limit` factory was the only such site that escaped the audit.
+
+**Sprint 4.3 architect (Stage 2) audit miss:** the Q2 one-function audit checked `app/services/analytics.py`'s call graph for `current_user` deps — clean. But the architect's S-4.3-2 / S-4.3-4 endpoint pick chose `/billing/portal` without auditing its middleware sub-deps. The architect's `system-design.md § R-4 endpoint pick` even noted "rate-limited via `rate_limit('manage_billing', identifier_type='user')` ... `identifier_type='user'` means the rate-limit middleware uses `request.state.user_id`" but didn't trace that `_get_user` is JWT-only.
+
+**Why it matters:** OmniLink markets long-lived scoped API keys for AI-native + MCP integrations (per `docs/plans/oauth-and-mcp-roadmap.md`). Until G-027 ships, every billing endpoint is unreachable via API-key auth — partner integrations / agents that need programmatic billing access (e.g., to query subscription status, list invoices, manage seats) hit a 401 wall.
+
+**Proposed fix:** Project-side, dedicated **Sprint 4.4** (planned). Scope:
+1. Migrate `rate_limit` factory's `_get_user` sub-dep → `get_current_auth` (the unified dispatcher) for `identifier_type="user"` branch. Same pattern as Sprint 4.2's OrgContext migration.
+2. Verify `request.state.user_id` is populated by the dispatcher before `_do_check` runs (Sprint 4 P2-H-01 fix already does this for OrgContext; verify the same for the dispatcher).
+3. Integration tests: API-key request hits a `rate_limit(..., identifier_type="user")`-protected endpoint → no longer 401; rate-limit semantics work end-to-end on both JWT and API-key paths.
+4. Phase 1 + Phase 2 security review (touches the auth boundary).
+
+Estimated 1.5-2h impl + tests + sec review. Schedule: Sprint 4.4 if/when prioritized, OR fold into Sprint 5 if the enhanced-event work touches billing.
+
+**Sprint 4.3 workaround:** S-4.3-2 role-gated tests pivoted to `DELETE /campaigns/{id}` (no rate_limit at route level + clean role-gating via `org_ctx.require_permission("delete")`). S-4.3-4 saturation tests pivoted to `GET /campaigns/{id}/analytics/export` (`identifier_type="org"`, API-key-compatible). Both pivots documented in `workspace/omnilink-sprint-04.3-cleanup-sweep/plans/decisions.md` D-005.
+
+**Status:** open
+**Logged by:** backend-engineer (during omnilink-sprint-04.3 Stage 3 impl, while testing architect's S-4.3-2 endpoint pick)
+**Logged date:** 2026-05-07
+**Notes:** Severity-up trigger to "high" if any partner / MCP integration in flight is blocked. Currently no live partner integrations on the billing surface; severity stays moderate. Sprint 4.4 is the natural home (cleanup pair-with-real-work pattern Sprint 4.2.1 + 4.3 used).
+
+
 ### Gap G-026 — analytics-endpoint-could-migrate-to-api-key-auth-but-deferred
 **Severity:** low (deferral, not a defect; closes a Sprint 4.2 ADR follow-up)
 **Evidence:** Sprint 4.2 ADR-0001 (`workspace/omnilink-sprint-04.2/plans/adr/0001-current-user-stays-jwt-only.md`) classified every `current_user: CurrentUser` use site under `app/api/v1/endpoints/` for the OrgContext → CurrentAuth migration. All 23 sites stay JWT-only EXCEPT one DEFER candidate: `GET /organizations/{id}/analytics` at `omnilink-backend/app/api/v1/endpoints/organizations.py:707`. Programmatic analytics access is the canonical AI-native API-key use case (per OAuth + MCP roadmap). The `read:analytics` scope already exists in `app/core/security.py:SCOPES` (Sprint 4). Migration is a one-function change + tests, but defining ACs + tests + cross-repo gate analysis is its own scope.
