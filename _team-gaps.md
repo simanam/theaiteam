@@ -415,8 +415,10 @@ Estimated 1.5-2h impl + tests + sec review. Schedule: Sprint 4.4 if/when priorit
 
 Estimated 2-3h impl + tests.
 
-**Status:** open (deferred per Sprint 4.2 ADR-0001)
+**Status:** closed-fixed-in-ca09e44 (Sprint 4.3, PR #10)
 **Logged by:** architect (during omnilink-sprint-04.2 Stage 2 sibling-survey ADR)
 **Logged date:** 2026-05-06
-**Notes:** Not blocking. Sprint 4.2 ADR-0001 records the rationale; this gap is the actionable follow-up. Schedule alongside MCP tool wiring (which is the natural trigger) or fold into Sprint 5 enhanced-event work if the analytics endpoint is touched anyway.
+**Closed date:** 2026-05-07
+**Closed by:** Sprint 4.3 ship — `feat/sprint-04.3-cleanup-sweep` 5 commits (`531e035`, `5cd0d0a`, `3b622d1`, `e362565`, `6d77f5e`); merged to develop as PR [#10](https://github.com/simanam/OmniLink/pull/10) at `ca09e44`; ff to main at `2c10376..ca09e44`. Test that proves closure: `tests/integration/test_orgcontext_currentauth.py::test_get_organization_analytics_api_key_with_scope_returns_200` (pre-Sprint-4.3 the endpoint required JWT only; post-S-4.3-6 returns 200 with `read:analytics` scope on API key). Cross-org defense `test_get_organization_analytics_api_key_cross_org_returns_403` inherits Sprint 4.2 F-1 equality check (Option B per architect ADR-0001 of this sprint). All 5 G-026 ACs (AC-4.3-6-6..10) green; AC-4.3-6-11 dropped per D-005 (FastAPI default OpenAPI generator doesn't introspect `dependencies=[Depends(require_scope(...))]` — repo-wide-symmetric, not a regression).
+**Notes:** Sprint 4.3 also surfaced a same-shape gap in `app/middleware/rate_limit.py` (`_check` closure declares JWT-only `_get_user` for `identifier_type="user"`); logged as G-027. Cross-repo gate (b) green post-ship per Sprint 4.2 D-004 pattern: prod smoke verified `api.omny.link/health{,/db,/redis}` 200; auth boundary intact on the migrated endpoint (no-auth/junk-bearer/fake-API-key all 401); user-confirmed dashboard `/analytics` view renders correctly with same `OrganizationAnalyticsResponse` body shape. Truckers cross-repo gate (b) from Sprint 4.2 still green: `go.omny.link/{survey,tr-app}` 307 → truckersroutine.com.
 
