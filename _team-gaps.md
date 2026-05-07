@@ -309,10 +309,12 @@ Recommend option 1 (Railway IP allowlist) for minimum operational complexity. Pa
 
 Estimated 4-6h impl + 1-2h tests. Schedule: immediately after Sprint 4.1 ships.
 
-**Status:** open (planned for Sprint 4.2 per D-505)
+**Status:** **closed-fixed-in-1087852** (Sprint 4.2 shipped to prod 2026-05-06; PR [#7](https://github.com/simanam/OmniLink/pull/7))
 **Logged by:** orchestrator (during omnilink-sprint-04.1 Stage 2 architect adjudication)
 **Logged date:** 2026-05-06
-**Notes:** Sprint 4.1 dropped S-402 (D-505) rather than ship a JWT-only "half-smoke" that would obscure this gap. Sprint 4.2 closes G-024 + S-402 together. Same-shape gap likely exists for `get_workspace_context` and any other `CurrentUser`-typed dependency — Sprint 4.2 architect surveys before scoping. Two Sprint 4 security-review passes missing this is a process signal: integration smoke for new auth surfaces must run BEFORE merge, not as a deferred carry-over. Worth an after-action item for Sprint-4 retrospective.
+**Closed date:** 2026-05-06
+**Closed by:** Sprint 4.2 ship — `feat/sprint-04.2-orgcontext-currentauth` 4 commits (`aafd34a`, `a02c53f`, `c57e9ad`, `fed1ad1`) + lint cleanup `3174879`; merged to develop as PR [#7](https://github.com/simanam/OmniLink/pull/7); ff to main at `1087852`. Test that proves closure: `tests/integration/test_orgcontext_currentauth.py::test_get_campaigns_returns_200_for_api_key_path` (pre-Sprint-4.2 returned 401; post-S-421 returns 200). F-1 cross-org defense (`tests/integration/test_orgcontext_currentauth.py::test_api_key_cross_org_blocked_by_f1_equality_check`) closes the cross-org confused-deputy attack vector that PM's default would have left open.
+**Notes:** Sprint 4.1 dropped S-402 (D-505) rather than ship a JWT-only "half-smoke" that would obscure this gap. Sprint 4.2 closed G-024 + S-402 together as planned. Sibling-survey via [ADR-0001](workspace/omnilink-sprint-04.2/plans/adr/0001-current-user-stays-jwt-only.md) confirmed all 23 sibling `CurrentUser` use sites stay JWT-only on purpose; one DEFER candidate (`GET /organizations/{id}/analytics`) logged as G-026. After-action for Sprint-4 retrospective: integration smoke for new auth surfaces (cross-path test pattern in `tests/integration/test_orgcontext_currentauth.py`) MUST run pre-merge for any future auth-boundary change. The fixture infra (`api_key_setup`) is the reusable artifact.
 
 
 ### Gap G-025 — pre-existing test failures on omnilink-backend develop tip
