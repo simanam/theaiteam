@@ -377,10 +377,18 @@ elif identifier_type == "user":
 
 **Fix shape:** mirror G-027 exactly. ~10min impl + ~10min sibling test. Same `_get_user` → `get_current_auth` swap, same defensive `request.state.user_id = str(auth.user_id)` (D-004 pattern), same imports adjustment. The closure body's defensive write is load-bearing if a future test ever installs `dependency_overrides[get_current_auth]` for a `bulk_upload` endpoint (mirroring Sprint 4.4 D-004 finding).
 
-**Status:** open
+**Status:** closed-fixed-in-9060890 (Sprint 4.4.1, PR [#12](https://github.com/simanam/OmniLink/pull/12), shipped 2026-05-08)
 **Logged by:** architect (Sprint 4.4 Stage 2 Q-arch-S44-2 audit closure for the audit-shape-miss that produced G-027) + filed at orchestrator Stage 7 close (2026-05-08)
 **Logged date:** 2026-05-08
-**Notes:** Sprint 5+ candidate or fold-into-Sprint-5 if event work touches bulk-upload. After G-028 ships, the Sprint 4.2 ADR-0001 audit-shape gap is fully closed — no remaining JWT-only sub-deps under `app/middleware/` or `app/core/` outside the documented STAY-JWT-ONLY `CurrentUser` / `OptionalUser` type aliases (per Sprint 4.4 Q-arch-S44-2 grep).
+**Closed date:** 2026-05-08 (same day)
+**Closure evidence:**
+- One-commit PR: `f203d51` — byte-for-byte mirror of Sprint 4.4 ADR-0001's diff applied to `rate_limit_size:552-561` instead of `rate_limit:400-409`.
+- Post-fix audit-shape grep returns ZERO `_Depends(_get_user)` / `_Depends(get_current_user)` hits in `app/middleware/`. Only remaining reference is the documented STAY-JWT-ONLY `CurrentUser` type alias at `app/core/security.py:335`.
+- Full test suite 850/0/0 (184 integration + 666 unit) — Sprint 4.4 baseline preserved.
+- Stage 4 security check APPROVED (scoped-to-precedent per Sprint 4.3 D-001 lighter-ceremony pattern; Sprint 4.4 Phase 1 + Phase 2 ceremony covers this byte-for-byte mirror transitively). See [`workspace/omnilink-sprint-04.4.1-rate-limit-size-currentauth/artifacts/security/scoped-check.md`](workspace/omnilink-sprint-04.4.1-rate-limit-size-currentauth/artifacts/security/scoped-check.md).
+- Cross-repo gate: zero live callers means zero contract surface; "no consumer-impacting change" trivially.
+- Prod smokes green (health/db/redis 200; auth boundary no-auth/junk-bearer/fake-key all → 401).
+**Notes:** **Sprint 4.2 ADR-0001 audit-shape thread is now fully closed end-to-end.** No remaining JWT-only sub-deps under `app/middleware/` or `app/core/` outside the documented STAY-JWT-ONLY `CurrentUser` / `OptionalUser` type aliases. Sprint 5 (enhanced event model) lands on a clean baseline w.r.t. the auth-coverage story. ~30min total elapsed (well under brief's 1h cap).
 
 
 ### Gap G-027 — rate_limit-middleware-_get_user-sub-dep-jwt-only (G-024-round-2)
