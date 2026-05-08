@@ -353,6 +353,36 @@ The Sprint 4 ship was completed on 2026-05-06 with these test failures present. 
 **Closed 2026-05-07 by Sprint 4.2.1** (`omnilink-sprint-04.2.1-test-baseline-fix`, shipped at `2c10376` via PR [#9](https://github.com/simanam/OmniLink/pull/9)). Five RC commits closed all 40 baseline issues across the four named files (`test_campaigns.py`, `test_gs1.py`, `test_redirects.py`, `test_health.py`). Three actual root causes (gs1productstatus enum drift, /health post-hardening test alignment, campaign POST 422 from auth_client G-019 territory) had two more layered RCs underneath (gs1_audit_log + gs1_bulk_job enum drifts; sql session expiry on async client). The auth_client rebuild (RC3 commit `cbf4dc4`) is the actual G-025 + G-019 closer — it migrated the legacy fixture to seed real Org+Member+Workspace and added the X-Org-ID header, which was what the original G-025 entry's "fix the 3-4 actual failures" referred to. Final integration suite: 172 passed, 0 failed, 0 errors. Full suite (incl. 666 unit): 838 passed.
 
 
+### Gap G-028 — rate_limit_size-factory-_get_user-sub-dep-jwt-only (G-027-sibling)
+**Severity:** low (zero live callers today; same-shape gap as G-027 in sibling factory)
+**Evidence:** Sprint 4.4 Stage 2 Q-arch-S44-2 audit surfaced a second same-shape JWT-only sub-dep site that escaped Sprint 4.2 ADR-0001 + Sprint 4.4 G-027's named scope.
+
+[`omnilink-backend/app/middleware/rate_limit.py:543-552`](../marketing_projects/omnilink-backend/app/middleware/rate_limit.py#L543) — `rate_limit_size` factory's `_check` closure for `identifier_type="user"`:
+
+```python
+elif identifier_type == "user":
+    from app.core.security import get_current_user as _get_user
+    async def _check(
+        request: Request,
+        current_user: dict = _Depends(_get_user),  # ← JWT-only, same shape as G-027
+    ) -> None:
+        if not getattr(request.state, "user_id", None):
+            request.state.user_id = current_user["user_id"]
+        await _do_check(request)
+```
+
+**Live callers of `rate_limit_size`:** `bulk.py:146` only, `identifier_type="org"`. **Zero callers exercise the `user` branch today** — dead-code-by-shape but defectively-defined. If a future sprint adds a `rate_limit_size(..., identifier_type="user")` caller, it would hit the same 401-wall G-027 had on the `rate_limit` factory.
+
+**Why not Sprint 4.4 scope-expanded:** Sprint 4.4 PRD § 3 non-goals pre-decided this — "Sprint 4.4 stays scoped to the one closure named in G-027." Architect honored at Stage 2; backend honored at Stage 3. See [`workspace/omnilink-sprint-04.4-rate-limit-currentauth/plans/system-design.md` § 10](workspace/omnilink-sprint-04.4-rate-limit-currentauth/plans/system-design.md#10-open-issues--new-gaps-surfaced) and [`workspace/omnilink-sprint-04.4-rate-limit-currentauth/plans/decisions.md` D-003](workspace/omnilink-sprint-04.4-rate-limit-currentauth/plans/decisions.md#d-003).
+
+**Fix shape:** mirror G-027 exactly. ~10min impl + ~10min sibling test. Same `_get_user` → `get_current_auth` swap, same defensive `request.state.user_id = str(auth.user_id)` (D-004 pattern), same imports adjustment. The closure body's defensive write is load-bearing if a future test ever installs `dependency_overrides[get_current_auth]` for a `bulk_upload` endpoint (mirroring Sprint 4.4 D-004 finding).
+
+**Status:** open
+**Logged by:** architect (Sprint 4.4 Stage 2 Q-arch-S44-2 audit closure for the audit-shape-miss that produced G-027) + filed at orchestrator Stage 7 close (2026-05-08)
+**Logged date:** 2026-05-08
+**Notes:** Sprint 5+ candidate or fold-into-Sprint-5 if event work touches bulk-upload. After G-028 ships, the Sprint 4.2 ADR-0001 audit-shape gap is fully closed — no remaining JWT-only sub-deps under `app/middleware/` or `app/core/` outside the documented STAY-JWT-ONLY `CurrentUser` / `OptionalUser` type aliases (per Sprint 4.4 Q-arch-S44-2 grep).
+
+
 ### Gap G-027 — rate_limit-middleware-_get_user-sub-dep-jwt-only (G-024-round-2)
 **Severity:** moderate (foundational for AI-native + MCP positioning; same shape as G-024 but in middleware, not OrgContext)
 **Evidence:** Sprint 4.3 Stage 3 surfaced this mid-impl while testing the architect's S-4.3-2 role-gated and S-4.3-4 saturation picks (`POST /api/v1/billing/portal`). API-key requests returned 401 "Could not validate credentials" — the `_GENERIC_401` from the dispatcher. Root cause:
@@ -395,10 +425,18 @@ Estimated 1.5-2h impl + tests + sec review. Schedule: Sprint 4.4 if/when priorit
 
 **Sprint 4.3 workaround:** S-4.3-2 role-gated tests pivoted to `DELETE /campaigns/{id}` (no rate_limit at route level + clean role-gating via `org_ctx.require_permission("delete")`). S-4.3-4 saturation tests pivoted to `GET /campaigns/{id}/analytics/export` (`identifier_type="org"`, API-key-compatible). Both pivots documented in `workspace/omnilink-sprint-04.3-cleanup-sweep/plans/decisions.md` D-005.
 
-**Status:** open
+**Status:** closed-fixed-in-c4ddad6 (Sprint 4.4, PR [#11](https://github.com/simanam/OmniLink/pull/11), shipped 2026-05-08)
 **Logged by:** backend-engineer (during omnilink-sprint-04.3 Stage 3 impl, while testing architect's S-4.3-2 endpoint pick)
 **Logged date:** 2026-05-07
-**Notes:** Severity-up trigger to "high" if any partner / MCP integration in flight is blocked. Currently no live partner integrations on the billing surface; severity stays moderate. Sprint 4.4 is the natural home (cleanup pair-with-real-work pattern Sprint 4.2.1 + 4.3 used).
+**Closed date:** 2026-05-08
+**Closure evidence:**
+- Migration shape: [`workspace/omnilink-sprint-04.4-rate-limit-currentauth/plans/adr/0001-rate-limit-middleware-migration-shape.md`](workspace/omnilink-sprint-04.4-rate-limit-currentauth/plans/adr/0001-rate-limit-middleware-migration-shape.md). Closure body simplifies from `_get_user` (JWT-only) → `get_current_auth` (unified dispatcher) with defensive `request.state.user_id` write retained (D-004) for test-environment `dependency_overrides[get_current_auth]` compatibility.
+- Closure evidence test: `tests/integration/test_rate_limit_currentauth.py::test_post_billing_portal_api_key_with_manage_billing_returns_not_401` exercises real `_resolve_api_key` path on `POST /api/v1/billing/portal` with `manage_billing` scope. Pre-G-027 returned 401; post-G-027 returns 400 ("No billing account found" — typical test-env state).
+- JWT-path regression: `tests/integration/test_rate_limit_regression.py` (3 tests) green post-fix. Saturation sanity: `tests/integration/test_rate_limit_saturation.py` (`identifier_type="org"`) green — sibling branches untouched.
+- Final integration suite: 184/0/0 (was 183 baseline + 1 new). Unit suite: 666/0.
+- Phase 1 + Phase 2 security ceremony APPROVED at Stage 4b: 5/5 hard gates PASS, zero findings. See [`workspace/omnilink-sprint-04.4-rate-limit-currentauth/artifacts/security/{phase-1-signoff.md,phase-2-signoff.md}`](workspace/omnilink-sprint-04.4-rate-limit-currentauth/artifacts/security/).
+- Cross-repo gate: "no consumer-impacting change" checkbox ticked per Sprint 4.2 AC-422-9 re-verify (zero `omni_` matches in `omnlink-frontend/`). Prod auth-boundary smoke green (no-auth/junk-bearer/fake-API-key all → 401). Truckers gate green (`go.omny.link/{survey,tr-app}` 307 → truckersroutine.com).
+**Notes:** Sprint 4.4 surfaced one same-shape sibling site at Stage 2 architect-time audit (Q-arch-S44-2): `app/middleware/rate_limit.py:548` (`rate_limit_size` factory's `_check` for `identifier_type="user"`, zero live callers). Filed as G-028 (sibling carry-forward, low severity). Sprint 4.2 ADR-0001's audit-shape miss is now fully closed at the middleware closure level: no remaining JWT-only sub-deps under `app/middleware/` or `app/core/` outside the documented STAY-JWT-ONLY `CurrentUser` / `OptionalUser` type aliases.
 
 
 ### Gap G-026 — analytics-endpoint-could-migrate-to-api-key-auth-but-deferred
